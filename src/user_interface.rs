@@ -10,12 +10,12 @@ use iced::window::Action::ChangeIcon;
 use rusqlite::{params, Connection, Result};
 
 /// This struct is the "creator"  (as a field) with attributes: id, name, email, followers and UI States
-pub struct Creator {
+pub struct Creator<´a, Message + ´a + Clone> {
     id: i32,
     name: String,
     email: String,
     followers: i32,
-    name_state: TextInput::State,
+    name_state: TextInput<´a, Name>::State,
     email_state: TextInput::State,
     followers_state: TextInput::State,
     selected: bool,
@@ -35,6 +35,7 @@ pub enum Message {
     EmailChanged(usize, String),
     FollowersChanged(usize, String),
     CreatorSelected(usize, bool),
+    DeleteCreator(usize),
     Save,
 }
 
