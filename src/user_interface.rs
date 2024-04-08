@@ -1,12 +1,15 @@
+/// Importing the important crates used in this class
 use iced::futures::select_biased;
 use iced::widget::text::State;
 use iced::{
     executor, widget::Button, widget::Column, widget::Container, widget::Row, widget::Scrollable,
     widget::Text, widget::TextInput, Alignment, Application, Command, Element, Length, Renderer,
-    Settings,
+    Settings, widget::Checkbox,
 };
+use iced::window::Action::ChangeIcon;
 use rusqlite::{params, Connection, Result};
-/// This struct represents a user interface
+
+/// This struct is the "creator"  (as a field) with attributes: id, name, email, followers and UI States
 pub struct Creator {
     id: i32,
     name: String,
@@ -15,21 +18,27 @@ pub struct Creator {
     name_state: TextInput::State,
     email_state: TextInput::State,
     followers_state: TextInput::State,
+    selected: bool,
+    checkbox_state: iced::widget::Checkbox::State,
 }
+
 /// This struct represent the app
 pub struct MyApp {
     creators: Vec<Creator>,
     save_button: Button::State,
 }
 
+/// Enum for handling different types of messages / events in the application
 #[derive(Debug, Clone)]
 pub enum Message {
     NameChanged(usize, String),
     EmailChanged(usize, String),
     FollowersChanged(usize, String),
+    CreatorSelected(usize, bool),
     Save,
 }
 
+/// Implementation for MyApp
 impl Application for MyApp {
     type Executor = executor::Default;
     type Message = Message;
@@ -46,11 +55,12 @@ impl Application for MyApp {
             Command::none(),
         )
     }
-
+    /// Setting the title for the application
     fn title(&self) -> String {
-        String::from("My App")
+        String::from("Creator Mailer")
     }
 
+    /// Function to handle updates based on certain events
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
             Message::NameChanged(index, new_name) => {
@@ -65,9 +75,13 @@ impl Application for MyApp {
             Message::Save => {
                 save_creators(&self.creators).unwrap();
             }
+            Message::CreatorSelected(index, selected) => {
+                self.creators[index].selected = selected;
+            }
         }
         Command::none()
     }
+    /// This is the view function, it includes all the inputs and text boxes used for the database controller
     fn view(&mut self) -> Element<'_, Self::Message> {
         let mut content = Column::new();
         for (i, creator) in self.creators.iter_mut().enumerate() {
@@ -86,6 +100,12 @@ impl Application for MyApp {
                     TextInput::new(&mut creator.followers_state, "Followers")
                         .value(&creator.followers.to_string())
                         .on_change(move |followers| Message::FollowersChanged(i, followers)),
+                )
+                .push(
+                    Checkbox::new(creator.selected, move |checked| {
+                        Message::CreatorSelected(i, checked)
+                    })
+                        .State(&mut creator.checkbox_state),
                 );
 
             content = content.push(row);
@@ -102,6 +122,7 @@ impl Application for MyApp {
     }
 }
 
+/// Function to fetch creators from the database
 fn fetch_creators() -> Result<Vec<Creator>> {
     let conn = Connection::open("my_db.db")?;
     let mut stmt = conn.prepare("SELECT Id, Name, Email, Followers FROM Creators")?;
@@ -114,11 +135,14 @@ fn fetch_creators() -> Result<Vec<Creator>> {
             name_state: TextInput::State::new(),
             email_state: TextInput::State::new(),
             followers_state: TextInput::State::new(),
+            selected: false,
+            checkbox_state: (),
         })
     })?;
     Ok(rows.collect::<Result<_>>()?)
 }
 
+/// Function to save creators to the database
 fn save_creators(creators: &[Creator]) -> Result<()> {
     let conn = Connection::open("my_db.db")?;
     for creator in creators {
@@ -129,11 +153,13 @@ fn save_creators(creators: &[Creator]) -> Result<()> {
     }
     Ok(())
 }
+
+/// Function to insert a new creator into the database
 fn insert_creator(creator: &Creator) -> Result<()> {
     let conn = Connection::open("database.db")?;
     conn.execute(
         "INSERT INTO Creators (Name, Email, Followers) VALUES (?, ?, ?)",
-        params![creator.name, creator.email, creator.followers]
+        params![creator.name, creator.email, creator.followers],
     )?;
     Ok(())
 }
